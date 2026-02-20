@@ -323,12 +323,14 @@ def auto_format(text, opts):
     if opts.get("double_space"):
         text = re.sub(r'  +', ' ', text)
     if opts.get("smart_quotes"):
-        text = re.sub(r'"(\S)', r'"\1', text)
-        text = re.sub(r'(\S)"', r'\1"', text)
-        text = re.sub(r'"', '"', text)
-        text = re.sub(r"'(\S)", r''\1', text)
-        text = re.sub(r"(\S)'", r'\1'', text)
-        text = re.sub(r"'", "'", text)
+        # Double quotes: open = \u201c, close = \u201d
+        text = re.sub(r'"(\S)', '\u201c\\1', text)
+        text = re.sub(r'(\S)"', '\\1\u201d', text)
+        text = re.sub(r'"', '\u201d', text)
+        # Single quotes / apostrophes: open = \u2018, close = \u2019
+        text = re.sub(r"'(\S)", '\u2018\\1', text)
+        text = re.sub(r"(\S)'", '\\1\u2019', text)
+        text = re.sub(r"'", '\u2019', text)
     if opts.get("ellipsis"):
         text = re.sub(r'\.{4}', '…', text)
         text = re.sub(r'\.{3}', '…', text)
