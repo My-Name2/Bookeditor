@@ -2,555 +2,645 @@ import streamlit as st
 import re
 from datetime import datetime
 
-# ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Folio — Manuscript Editor",
-    page_icon="📖",
-    layout="wide",
+    page_title="Folio",
+    page_icon="📄",
+    layout="centered",
     initial_sidebar_state="collapsed",
 )
 
-# ── CSS ───────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500&display=swap');
 
-  html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; background: #fff; color: #1a1a1a; }
-  .stApp { background: #fff; }
-  #MainMenu, footer, header { visibility: hidden; }
-  .block-container { padding: 0 !important; max-width: 100% !important; }
+* { box-sizing: border-box; }
+html, body, [class*="css"] {
+  font-family: 'Inter', sans-serif;
+  background: #fafafa;
+  color: #1a1a1a;
+}
+.stApp { background: #fafafa; }
+#MainMenu, footer, header { visibility: hidden; }
+.block-container { padding: 0 !important; max-width: 100% !important; }
 
-  .topbar { background: #fff; border-bottom: 2px solid #1a1a1a; padding: 12px 18px; display: flex; align-items: center; gap: 10px; }
-  .topbar-logo { font-family: 'Playfair Display', serif; font-size: 1.3rem; color: #1a1a1a; }
-  .topbar-sub { font-size: 0.68rem; color: #999; letter-spacing: 0.12em; text-transform: uppercase; }
+/* ── Toolbar strip ── */
+.toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: #fff;
+  border-bottom: 1px solid #e8e8e8;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.toolbar-title {
+  font-family: 'Lora', serif;
+  font-size: 1rem;
+  color: #1a1a1a;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.toolbar-stats {
+  font-size: 0.72rem;
+  color: #aaa;
+  white-space: nowrap;
+}
 
-  .stTabs [data-baseweb="tab-list"] { background: #f6f6f6; border-bottom: 1px solid #ddd; padding: 0 10px; gap: 0; }
-  .stTabs [data-baseweb="tab"] { font-size: 0.74rem; font-weight: 600; color: #aaa !important; padding: 11px 12px !important; letter-spacing: 0.06em; text-transform: uppercase; border-bottom: 2px solid transparent !important; background: transparent !important; }
-  .stTabs [aria-selected="true"] { color: #1a1a1a !important; border-bottom-color: #1a1a1a !important; }
-  .stTabs [data-baseweb="tab-panel"] { padding: 18px 14px !important; background: #fff; }
+/* ── Tab bar ── */
+.stTabs [data-baseweb="tab-list"] {
+  background: #fff;
+  border-bottom: 1px solid #e8e8e8;
+  padding: 0 16px;
+  gap: 0;
+}
+.stTabs [data-baseweb="tab"] {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: #bbb !important;
+  padding: 10px 14px !important;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-bottom: 2px solid transparent !important;
+  background: transparent !important;
+}
+.stTabs [aria-selected="true"] {
+  color: #1a1a1a !important;
+  border-bottom-color: #1a1a1a !important;
+}
+.stTabs [data-baseweb="tab-panel"] {
+  padding: 0 !important;
+  background: #fafafa;
+}
 
-  .stTextArea textarea { background: #fff !important; border: 1px solid #ccc !important; border-radius: 8px !important; color: #1a1a1a !important; font-family: 'DM Sans', sans-serif !important; font-size: 0.93rem !important; line-height: 1.8 !important; padding: 14px !important; resize: vertical; }
-  .stTextArea textarea:focus { border-color: #1a1a1a !important; box-shadow: 0 0 0 2px rgba(26,26,26,0.08) !important; }
-  .stTextInput input { background: #fff !important; border: 1px solid #ccc !important; border-radius: 8px !important; color: #1a1a1a !important; font-size: 0.88rem !important; padding: 8px 12px !important; }
-  .stTextInput input:focus { border-color: #1a1a1a !important; }
+/* ── The writing area — this is the hero ── */
+.stTextArea textarea {
+  background: #fff !important;
+  border: none !important;
+  border-radius: 0 !important;
+  color: #1a1a1a !important;
+  font-family: 'Lora', serif !important;
+  font-size: 1.05rem !important;
+  line-height: 1.9 !important;
+  padding: 32px 24px !important;
+  resize: none !important;
+  box-shadow: none !important;
+  min-height: 80vh !important;
+  width: 100% !important;
+}
+.stTextArea textarea:focus {
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+.stTextArea { border: none !important; }
+div[data-baseweb="textarea"] { border: none !important; box-shadow: none !important; }
 
-  .stButton > button { background: #1a1a1a !important; color: #fff !important; border: none !important; border-radius: 8px !important; font-weight: 600 !important; font-size: 0.82rem !important; letter-spacing: 0.04em !important; padding: 9px 16px !important; width: 100%; transition: background 0.15s !important; }
-  .stButton > button:hover { background: #333 !important; }
+/* ── Tool panels (non-editor tabs) ── */
+.panel {
+  padding: 20px 16px;
+  background: #fafafa;
+  min-height: 60vh;
+}
 
-  div[data-testid="metric-container"] { background: #f6f6f6; border: 1px solid #e0e0e0; border-radius: 8px; padding: 10px 12px; text-align: center; }
-  div[data-testid="metric-container"] label { color: #999 !important; font-size: 0.65rem !important; letter-spacing: 0.1em; text-transform: uppercase; }
-  div[data-testid="stMetricValue"] { color: #1a1a1a !important; font-family: 'Playfair Display', serif !important; font-size: 1.25rem !important; }
+/* ── Inputs in panels ── */
+.stTextInput input {
+  background: #fff !important;
+  border: 1px solid #ddd !important;
+  border-radius: 6px !important;
+  color: #1a1a1a !important;
+  font-size: 0.9rem !important;
+  padding: 8px 12px !important;
+  font-family: 'Inter', sans-serif !important;
+}
+.stTextInput input:focus {
+  border-color: #1a1a1a !important;
+  box-shadow: none !important;
+}
 
-  .card { background: #f9f9f9; border: 1px solid #e0e0e0; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; }
-  .card-title { font-family: 'Playfair Display', serif; font-size: 0.95rem; color: #1a1a1a; margin-bottom: 6px; }
-  .card-body { font-size: 0.8rem; color: #555; line-height: 1.65; }
+/* ── Buttons ── */
+.stButton > button {
+  background: #1a1a1a !important;
+  color: #fff !important;
+  border: none !important;
+  border-radius: 6px !important;
+  font-family: 'Inter', sans-serif !important;
+  font-weight: 500 !important;
+  font-size: 0.82rem !important;
+  padding: 8px 16px !important;
+  width: 100%;
+  transition: background 0.12s !important;
+}
+.stButton > button:hover { background: #333 !important; }
 
-  .slabel { font-size: 0.62rem; letter-spacing: 0.14em; text-transform: uppercase; color: #bbb; margin-bottom: 8px; padding-bottom: 5px; border-bottom: 1px solid #eee; }
+.stDownloadButton > button {
+  background: #fff !important;
+  color: #1a1a1a !important;
+  border: 1px solid #ddd !important;
+  border-radius: 6px !important;
+  font-size: 0.82rem !important;
+  font-weight: 500 !important;
+  padding: 8px 16px !important;
+  width: 100%;
+}
+.stDownloadButton > button:hover { background: #f5f5f5 !important; border-color: #aaa !important; }
 
-  .page-preview { background: #fff; color: #1a1a1a; border-radius: 8px; padding: 36px 32px; font-family: 'Playfair Display', serif; font-size: 1rem; line-height: 2; white-space: pre-wrap; word-break: break-word; border: 1px solid #ddd; max-height: 540px; overflow-y: auto; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+/* ── Stat pills ── */
+.stat-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 10px 16px;
+  background: #fff;
+  border-bottom: 1px solid #f0f0f0;
+}
+.stat-pill {
+  font-size: 0.7rem;
+  color: #888;
+  background: #f5f5f5;
+  border-radius: 20px;
+  padding: 3px 10px;
+  white-space: nowrap;
+}
+.stat-pill b { color: #1a1a1a; font-weight: 600; }
 
-  .toc-entry { display: flex; justify-content: space-between; align-items: baseline; padding: 7px 0; border-bottom: 1px dotted #ddd; font-size: 0.85rem; }
-  .toc-entry:last-child { border-bottom: none; }
-  .toc-title { color: #1a1a1a; }
-  .toc-page { color: #999; font-family: 'Playfair Display', serif; font-size: 0.9rem; }
+/* ── Section label ── */
+.slabel {
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #bbb;
+  margin: 16px 0 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #eee;
+}
 
-  .issue-row { background: #f9f9f9; border-left: 3px solid #1a1a1a; border-radius: 0 6px 6px 0; padding: 8px 12px; margin-bottom: 6px; font-size: 0.82rem; color: #333; }
-  .issue-row.warn { border-left-color: #d97706; background: #fffbf0; color: #92400e; }
-  .issue-row.info { border-left-color: #2563eb; background: #eff6ff; color: #1e40af; }
-  .issue-row.ok   { border-left-color: #16a34a; background: #f0fdf4; color: #166534; }
+/* ── Issue rows ── */
+.issue-row {
+  background: #fff;
+  border-left: 3px solid #ddd;
+  border-radius: 0 5px 5px 0;
+  padding: 7px 11px;
+  margin-bottom: 5px;
+  font-size: 0.8rem;
+  color: #444;
+}
+.issue-row.warn { border-left-color: #f59e0b; background: #fffdf5; color: #78350f; }
+.issue-row.info { border-left-color: #60a5fa; background: #f0f7ff; color: #1e3a8a; }
+.issue-row.ok   { border-left-color: #34d399; background: #f0fdf8; color: #065f46; }
 
-  .stDownloadButton > button { background: #f6f6f6 !important; color: #1a1a1a !important; border: 1px solid #ccc !important; font-size: 0.8rem !important; }
-  .stDownloadButton > button:hover { background: #eee !important; border-color: #1a1a1a !important; }
+/* ── TOC ── */
+.toc-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 7px 0;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 0.84rem;
+  color: #333;
+}
+.toc-row:last-child { border-bottom: none; }
+.toc-pg { color: #bbb; font-size: 0.78rem; }
 
-  .stCheckbox label { color: #1a1a1a !important; font-size: 0.84rem !important; }
-  .stRadio label { color: #1a1a1a !important; font-size: 0.84rem !important; }
+/* ── Word freq bar ── */
+.freq-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+.freq-word { min-width: 80px; font-size: 0.78rem; color: #555; }
+.freq-bar-bg { flex: 1; background: #f0f0f0; border-radius: 3px; height: 6px; }
+.freq-bar { background: #1a1a1a; border-radius: 3px; height: 6px; }
+.freq-n { font-size: 0.72rem; color: #bbb; min-width: 22px; text-align: right; }
 
-  .match-count { font-size: 0.78rem; color: #1a1a1a; padding: 4px 10px; background: #f0f0f0; border: 1px solid #ddd; border-radius: 4px; display: inline-block; margin-bottom: 8px; }
+/* ── Match badge ── */
+.match-badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  color: #555;
+  background: #f0f0f0;
+  border-radius: 4px;
+  padding: 3px 9px;
+  margin-bottom: 8px;
+}
 
-  @media (max-width: 640px) {
-    .topbar { padding: 10px 12px; }
-    .topbar-logo { font-size: 1.1rem; }
-    .stTabs [data-baseweb="tab"] { font-size: 0.68rem; padding: 9px 7px !important; }
-    .stTabs [data-baseweb="tab-panel"] { padding: 12px 10px !important; }
-    .page-preview { padding: 24px 18px; font-size: 0.9rem; }
-  }
+/* ── Checklist ── */
+.check-row {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  padding: 6px 0;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 0.8rem;
+  color: #444;
+}
+.check-row:last-child { border-bottom: none; }
+.check-icon { color: #ccc; flex-shrink: 0; margin-top: 1px; }
+
+/* ── Checkbox / radio labels ── */
+.stCheckbox label { color: #333 !important; font-size: 0.84rem !important; }
+.stRadio label { color: #333 !important; font-size: 0.84rem !important; }
+
+/* ── Page preview ── */
+.preview-page {
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 6px;
+  padding: 40px 32px;
+  font-family: 'Lora', serif;
+  font-size: 1rem;
+  line-height: 1.95;
+  color: #1a1a1a;
+  max-height: 70vh;
+  overflow-y: auto;
+  box-shadow: 0 1px 8px rgba(0,0,0,0.05);
+}
+
+/* ── Metrics ── */
+div[data-testid="metric-container"] {
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 6px;
+  padding: 10px 12px;
+  text-align: center;
+}
+div[data-testid="metric-container"] label {
+  color: #bbb !important;
+  font-size: 0.6rem !important;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+div[data-testid="stMetricValue"] {
+  color: #1a1a1a !important;
+  font-family: 'Lora', serif !important;
+  font-size: 1.2rem !important;
+}
+
+@media (max-width: 640px) {
+  .stTextArea textarea { font-size: 1rem !important; padding: 20px 16px !important; }
+  .preview-page { padding: 24px 18px; font-size: 0.95rem; }
+  .stTabs [data-baseweb="tab"] { font-size: 0.68rem; padding: 9px 10px !important; }
+}
 </style>
 """, unsafe_allow_html=True)
 
-# ── Top bar ───────────────────────────────────────────────────────────────────
-st.markdown("""
-<div class="topbar">
-  <div>
-    <div class="topbar-logo">📖 Folio</div>
-    <div class="topbar-sub">Manuscript Editor</div>
-  </div>
-</div>
-""", unsafe_allow_html=True)
-
 # ── Session state ─────────────────────────────────────────────────────────────
-if "manuscript" not in st.session_state:
-    st.session_state.manuscript = ""
-if "history" not in st.session_state:
-    st.session_state.history = []
-if "notes" not in st.session_state:
-    st.session_state.notes = ""
+for k, v in [("text", ""), ("history", []), ("doc_title", "Untitled Document")]:
+    if k not in st.session_state:
+        st.session_state[k] = v
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
-
-def push_history(text: str):
-    if st.session_state.history and st.session_state.history[-1] == text:
+def push_history(t):
+    if st.session_state.history and st.session_state.history[-1] == t:
         return
-    st.session_state.history.append(text)
-    if len(st.session_state.history) > 20:
+    st.session_state.history.append(t)
+    if len(st.session_state.history) > 30:
         st.session_state.history.pop(0)
 
-def word_count(text):
-    return len(text.split()) if text.strip() else 0
+def wc(t): return len(t.split()) if t.strip() else 0
+def sc(t): return len(re.findall(r'[.!?]+', t))
+def pc(t): return len([p for p in t.split("\n\n") if p.strip()])
+def pages(t): return max(1, round(wc(t) / 250))
+def read_time(t): return max(1, round(wc(t) / 238))
 
-def sentence_count(text):
-    return len(re.findall(r'[.!?]+', text))
-
-def paragraph_count(text):
-    return len([p for p in text.split("\n\n") if p.strip()])
-
-def detect_chapters(text):
-    chapters = []
-    word_pos = 0
+def headings(text):
+    out = []
+    wp = 0
     for line in text.split("\n"):
         s = line.strip()
-        if re.match(r'^##\s+', s):
-            chapters.append({"title": re.sub(r'^##\s+', '', s), "word_offset": word_pos})
+        if re.match(r'^#{1,3}\s+', s):
+            lvl = len(re.match(r'^(#+)', s).group(1))
+            title = re.sub(r'^#+\s+', '', s)
+            out.append({"title": title, "level": lvl, "page": max(1, round(wp/250))})
         elif re.match(r'(?i)^chapter\s+', s):
-            chapters.append({"title": s, "word_offset": word_pos})
-        word_pos += len(line.split())
-    return chapters
+            out.append({"title": s, "level": 2, "page": max(1, round(wp/250))})
+        wp += len(line.split())
+    return out
 
-def build_toc(text):
-    toc = []
-    word_pos = 0
-    for line in text.split("\n"):
-        s = line.strip()
-        title = None
-        if re.match(r'^##\s+', s):
-            title = re.sub(r'^##\s+', '', s)
-        elif re.match(r'(?i)^chapter\s+', s):
-            title = s
-        if title:
-            toc.append({"title": title, "page": max(1, round(word_pos / 250))})
-        word_pos += len(line.split())
-    return toc
-
-def audit_text(text):
-    issues = []
+def audit(text):
     if not text.strip():
-        return issues
-    if "  " in text:
-        issues.append({"level": "warn", "msg": f"{len(re.findall(r'  +', text))} double-space occurrence(s)"})
-    dq = len(re.findall(r'"', text))
-    if dq:
-        issues.append({"level": "warn", "msg": f"{dq} straight double-quote(s) — consider smart quotes"})
-    if "..." in text:
-        issues.append({"level": "info", "msg": f"{text.count('...')} '...' found — consider ellipsis character (…)"})
-    if "--" in text:
-        issues.append({"level": "info", "msg": f"{text.count('--')} '--' found — consider em dash (—)"})
-    trailing = sum(1 for l in text.split("\n") if l != l.rstrip())
-    if trailing:
-        issues.append({"level": "info", "msg": f"{trailing} line(s) with trailing whitespace"})
-    if re.search(r'\n{3,}', text):
-        issues.append({"level": "warn", "msg": "3+ consecutive blank lines detected"})
-    long_paras = [p for p in text.split("\n\n") if len(p.split()) > 300 and p.strip()]
-    if long_paras:
-        issues.append({"level": "warn", "msg": f"{len(long_paras)} paragraph(s) over 300 words — consider splitting"})
-    chapters = detect_chapters(text)
-    if not chapters:
-        issues.append({"level": "warn", "msg": "No chapter headings found — use '## Chapter 1: Title' format"})
+        return []
+    issues = []
+    n = len(re.findall(r'  +', text))
+    if n: issues.append(("warn", f"{n} double-space(s) found"))
+    n = len(re.findall(r'"', text))
+    if n: issues.append(("warn", f"{n} straight double-quote(s) — consider smart quotes"))
+    if "..." in text: issues.append(("info", f"{text.count('...')} ellipsis as '...' — consider … character"))
+    if "--" in text: issues.append(("info", f"{text.count('--')} double-dash — consider em dash —"))
+    n = sum(1 for l in text.split("\n") if l != l.rstrip())
+    if n: issues.append(("info", f"{n} line(s) with trailing whitespace"))
+    if re.search(r'\n{3,}', text): issues.append(("warn", "3+ consecutive blank lines found"))
+    long_p = [p for p in text.split("\n\n") if len(p.split()) > 300 and p.strip()]
+    if long_p: issues.append(("warn", f"{len(long_p)} paragraph(s) over 300 words"))
+    h = headings(text)
+    if h:
+        issues.append(("ok", f"{len(h)} heading(s) detected"))
     else:
-        issues.append({"level": "ok", "msg": f"{len(chapters)} chapter heading(s) detected ✓"})
-    wc = word_count(text)
-    issues.append({"level": "ok" if wc >= 1000 else "info", "msg": f"{wc:,} words total"})
+        issues.append(("info", "No headings found — use # Title or ## Chapter Name"))
+    issues.append(("ok", f"{wc(text):,} words · ~{pages(text)} pages · {read_time(text)} min read"))
     return issues
 
-def auto_format(text, opts):
+def do_format(text, opts):
     if opts.get("double_space"):
         text = re.sub(r'  +', ' ', text)
     if opts.get("smart_quotes"):
-        # Double quotes: open = \u201c, close = \u201d
         text = re.sub(r'"(\S)', '\u201c\\1', text)
         text = re.sub(r'(\S)"', '\\1\u201d', text)
         text = re.sub(r'"', '\u201d', text)
-        # Single quotes / apostrophes: open = \u2018, close = \u2019
         text = re.sub(r"'(\S)", '\u2018\\1', text)
         text = re.sub(r"(\S)'", '\\1\u2019', text)
         text = re.sub(r"'", '\u2019', text)
     if opts.get("ellipsis"):
-        text = re.sub(r'\.{4}', '…', text)
-        text = re.sub(r'\.{3}', '…', text)
+        text = re.sub(r'\.{4}', '\u2026', text)
+        text = re.sub(r'\.{3}', '\u2026', text)
     if opts.get("em_dash"):
-        text = re.sub(r'\s*---\s*', '—', text)
-        text = re.sub(r'\s*--\s*', '—', text)
+        text = re.sub(r'\s*---\s*', '\u2014', text)
+        text = re.sub(r'\s*--\s*', '\u2014', text)
     if opts.get("strip_trailing"):
         text = "\n".join(l.rstrip() for l in text.split("\n"))
     if opts.get("blank_lines"):
         text = re.sub(r'\n{3,}', '\n\n', text)
     if opts.get("scene_break"):
         text = re.sub(r'(?m)^\s*[\*\-]{3,}\s*$', '***', text)
-    if opts.get("chapter_headings"):
-        text = re.sub(r'(?im)^chapter\s+(\w+)\s*$', lambda m: f"## Chapter {m.group(1)}", text)
     return text
 
-def find_replace(text, find, replace, case_sensitive, whole_word):
-    if not find:
-        return text, 0
-    flags = 0 if case_sensitive else re.IGNORECASE
-    pattern = re.escape(find)
-    if whole_word:
-        pattern = r'\b' + pattern + r'\b'
-    matches = re.findall(pattern, text, flags=flags)
-    return re.sub(pattern, replace, text, flags=flags), len(matches)
+def find_replace(text, find, replace, case_sens, whole_word):
+    if not find: return text, 0
+    flags = 0 if case_sens else re.IGNORECASE
+    pat = re.escape(find)
+    if whole_word: pat = r'\b' + pat + r'\b'
+    matches = re.findall(pat, text, flags=flags)
+    return re.sub(pat, replace, text, flags=flags), len(matches)
 
-def export_html(text):
+def to_html(text):
     lines = text.split("\n")
-    html = ["<!DOCTYPE html><html><head><meta charset='utf-8'>",
-            "<style>body{font-family:Georgia,serif;max-width:660px;margin:60px auto;line-height:1.9;font-size:1.05rem;color:#1a1a1a}",
-            "h1{text-align:center;margin-bottom:2rem}h2{margin-top:2.5rem}p{margin:0 0 0.8rem 1.3em}",
-            ".scene{text-align:center;color:#888;letter-spacing:0.3em;margin:1.5rem 0}</style></head><body>"]
+    out = ["""<!DOCTYPE html><html><head><meta charset='utf-8'>
+<style>body{font-family:Georgia,serif;max-width:640px;margin:60px auto;line-height:1.9;font-size:1.05rem;color:#1a1a1a}
+h1{text-align:center;margin-bottom:2rem}h2{margin-top:2.5rem}h3{margin-top:1.5rem}
+p{margin:0 0 0.8rem 1.3em}.scene{text-align:center;color:#aaa;letter-spacing:0.3em;margin:1.5rem 0}
+</style></head><body>"""]
     for line in lines:
         s = line.strip()
-        if not s:
-            continue
-        if re.match(r'^#\s+', s):
-            html.append(f"<h1>{re.sub(r'^#\\s+','',s)}</h1>")
-        elif re.match(r'^##\s+', s):
-            html.append(f"<h2>{re.sub(r'^##\\s+','',s)}</h2>")
-        elif s == "***":
-            html.append('<div class="scene">* * *</div>')
-        else:
-            html.append(f"<p>{s}</p>")
-    html.append("</body></html>")
-    return "\n".join(html)
+        if not s: continue
+        if re.match(r'^###\s+', s):   out.append(f"<h3>{re.sub(r'^###\\s+','',s)}</h3>")
+        elif re.match(r'^##\s+', s):  out.append(f"<h2>{re.sub(r'^##\\s+','',s)}</h2>")
+        elif re.match(r'^#\s+', s):   out.append(f"<h1>{re.sub(r'^#\\s+','',s)}</h1>")
+        elif s == "***": out.append('<div class="scene">* * *</div>')
+        else: out.append(f"<p>{s}</p>")
+    out.append("</body></html>")
+    return "\n".join(out)
+
+# ── Toolbar ───────────────────────────────────────────────────────────────────
+t = st.session_state.text
+word_n = wc(t)
+stat_str = f"{word_n:,} words" if word_n else "Start typing..."
+
+st.markdown(f"""
+<div class="toolbar">
+  <span class="toolbar-title">📄 Folio</span>
+  <span class="toolbar-stats">{stat_str}</span>
+</div>
+""", unsafe_allow_html=True)
 
 # ── Tabs ──────────────────────────────────────────────────────────────────────
-tab_write, tab_audit, tab_find, tab_format, tab_preview, tab_export = st.tabs([
-    "✍️ Write", "🔍 Audit", "🔎 Find", "🔧 Format", "📖 Preview", "⬇️ Export"
+tab_write, tab_tools, tab_preview, tab_export = st.tabs([
+    "Write", "Tools", "Preview", "Export"
 ])
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# TAB 1 — WRITE
+# WRITE TAB — just the document, nothing else
 # ═══════════════════════════════════════════════════════════════════════════════
 with tab_write:
-    st.markdown('<div class="slabel">Manuscript</div>', unsafe_allow_html=True)
-
-    new_ms = st.text_area(
-        "ms",
-        value=st.session_state.manuscript,
-        placeholder="Start writing or paste your manuscript here...\n\nTip: ## Chapter 1: Title for chapters · *** for scene breaks · # My Book Title for the title",
-        height=400,
+    new_text = st.text_area(
+        "editor",
+        value=st.session_state.text,
+        placeholder="Start writing...",
+        height=700,
         label_visibility="collapsed",
+        key="main_editor",
     )
-    if new_ms != st.session_state.manuscript:
-        push_history(st.session_state.manuscript)
-        st.session_state.manuscript = new_ms
+    if new_text != st.session_state.text:
+        push_history(st.session_state.text)
+        st.session_state.text = new_text
 
-    ms = st.session_state.manuscript
-    if ms.strip():
-        wc  = word_count(ms)
-        sc  = sentence_count(ms)
-        pc  = paragraph_count(ms)
-        chs = len(detect_chapters(ms))
-        pages = max(1, round(wc / 250))
-        rt = max(1, round(wc / 238))
+# ═══════════════════════════════════════════════════════════════════════════════
+# TOOLS TAB — stats, find/replace, format, audit
+# ═══════════════════════════════════════════════════════════════════════════════
+with tab_tools:
+    t = st.session_state.text
 
-        c1, c2, c3, c4, c5 = st.columns(5)
-        with c1: st.metric("Words", f"{wc:,}")
-        with c2: st.metric("Pages ~", pages)
-        with c3: st.metric("Sentences", sc)
-        with c4: st.metric("Chapters", chs if chs else "—")
-        with c5: st.metric("Read Time", f"{rt}m")
+    # ── Stats ──
+    st.markdown('<div class="slabel">Document Stats</div>', unsafe_allow_html=True)
+    if t.strip():
+        c1, c2, c3, c4 = st.columns(4)
+        with c1: st.metric("Words", f"{wc(t):,}")
+        with c2: st.metric("Pages ~", pages(t))
+        with c3: st.metric("Sentences", sc(t))
+        with c4: st.metric("Read", f"{read_time(t)}m")
+    else:
+        st.markdown('<p style="color:#bbb;font-size:0.85rem;padding:8px 0">Nothing written yet.</p>', unsafe_allow_html=True)
 
-        st.markdown("---")
-        col_a, col_b = st.columns(2)
-        with col_a:
-            if st.button("↩️ Undo", use_container_width=True):
-                if st.session_state.history:
-                    st.session_state.manuscript = st.session_state.history.pop()
-                    st.rerun()
-                else:
-                    st.info("Nothing to undo.")
-        with col_b:
-            if st.button("🗑️ Clear All", use_container_width=True):
-                push_history(st.session_state.manuscript)
-                st.session_state.manuscript = ""
+    # ── Undo / Clear ──
+    st.markdown('<div class="slabel">History</div>', unsafe_allow_html=True)
+    ca, cb = st.columns(2)
+    with ca:
+        if st.button("↩ Undo", use_container_width=True):
+            if st.session_state.history:
+                st.session_state.text = st.session_state.history.pop()
                 st.rerun()
-    else:
-        st.markdown("""
-        <div class="card" style="margin-top:10px">
-          <div class="card-title">Getting Started</div>
-          <div class="card-body">
-            Write directly or paste your full manuscript above.<br><br>
-            <b>Book title:</b>&nbsp; <code># My Book Title</code><br>
-            <b>Chapter:</b>&nbsp; <code>## Chapter 1: The Beginning</code><br>
-            <b>Scene break:</b>&nbsp; <code>***</code> on its own line
-          </div>
-        </div>
-        """, unsafe_allow_html=True)
+            else:
+                st.toast("Nothing to undo")
+    with cb:
+        if st.button("🗑 Clear document", use_container_width=True):
+            if st.session_state.text:
+                push_history(st.session_state.text)
+                st.session_state.text = ""
+                st.rerun()
 
-    st.markdown("---")
-    st.markdown('<div class="slabel">Private Notes (never exported)</div>', unsafe_allow_html=True)
-    notes = st.text_area("notes", value=st.session_state.notes,
-                         placeholder="Plot notes, character outlines, reminders...",
-                         height=110, label_visibility="collapsed")
-    if notes != st.session_state.notes:
-        st.session_state.notes = notes
+    # ── Find & Replace ──
+    st.markdown('<div class="slabel">Find & Replace</div>', unsafe_allow_html=True)
+    find_str = st.text_input("Find", placeholder='e.g. "said"', label_visibility="collapsed", key="find_in")
+    repl_str = st.text_input("Replace with", placeholder='e.g. "whispered"', label_visibility="collapsed", key="repl_in")
+    fc1, fc2 = st.columns(2)
+    with fc1: case_s = st.checkbox("Case sensitive", key="case_cb")
+    with fc2: whole_w = st.checkbox("Whole word", key="whole_cb")
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# TAB 2 — AUDIT
-# ═══════════════════════════════════════════════════════════════════════════════
-with tab_audit:
-    ms = st.session_state.manuscript
-    if not ms.strip():
-        st.markdown('<div class="issue-row info">ℹ Paste your manuscript in the Write tab first.</div>', unsafe_allow_html=True)
-    else:
-        st.markdown('<div class="slabel">Formatting Issues</div>', unsafe_allow_html=True)
-        for issue in audit_text(ms):
-            lvl = issue["level"]
-            icon = {"ok": "✓", "warn": "⚠", "info": "ℹ", "err": "✗"}.get(lvl, "•")
-            st.markdown(f'<div class="issue-row {lvl}">{icon} {issue["msg"]}</div>', unsafe_allow_html=True)
+    if find_str and t:
+        try:
+            flags = 0 if case_s else re.IGNORECASE
+            pat = (r'\b' + re.escape(find_str) + r'\b') if whole_w else re.escape(find_str)
+            n = len(re.findall(pat, t, flags=flags))
+            st.markdown(f'<span class="match-badge">{n} match{"es" if n!=1 else ""}</span>', unsafe_allow_html=True)
+        except: pass
 
-        st.markdown("---")
-        st.markdown('<div class="slabel">Table of Contents</div>', unsafe_allow_html=True)
-        toc = build_toc(ms)
-        if toc:
-            for e in toc:
+    ra, rb = st.columns(2)
+    with ra:
+        if st.button("Replace All", use_container_width=True, key="rep_btn"):
+            if find_str and t:
+                push_history(t)
+                new_t, n = find_replace(t, find_str, repl_str, case_s, whole_w)
+                st.session_state.text = new_t
+                st.toast(f"Replaced {n} occurrence(s)")
+                st.rerun()
+    with rb:
+        if st.button("↩ Undo replace", use_container_width=True, key="rep_undo"):
+            if st.session_state.history:
+                st.session_state.text = st.session_state.history.pop()
+                st.rerun()
+
+    # ── Auto-format ──
+    st.markdown('<div class="slabel">Auto-Format</div>', unsafe_allow_html=True)
+    opts = {}
+    opts["double_space"]   = st.checkbox("Remove double spaces",           value=True,  key="f1")
+    opts["blank_lines"]    = st.checkbox("Collapse extra blank lines",     value=True,  key="f2")
+    opts["strip_trailing"] = st.checkbox("Strip trailing whitespace",      value=True,  key="f3")
+    opts["smart_quotes"]   = st.checkbox("Straighten → smart quotes",      value=False, key="f4")
+    opts["ellipsis"]       = st.checkbox("... → … ellipsis",              value=False, key="f5")
+    opts["em_dash"]        = st.checkbox("-- → — em dash",                value=False, key="f6")
+    opts["scene_break"]    = st.checkbox("Normalize scene breaks to ***",  value=False, key="f7")
+
+    fa, fb = st.columns(2)
+    with fa:
+        if st.button("Apply Formatting", use_container_width=True, key="fmt_btn"):
+            if t:
+                push_history(t)
+                st.session_state.text = do_format(t, opts)
+                st.toast("Formatting applied")
+                st.rerun()
+    with fb:
+        if st.button("↩ Undo", use_container_width=True, key="fmt_undo"):
+            if st.session_state.history:
+                st.session_state.text = st.session_state.history.pop()
+                st.rerun()
+
+    # ── Audit ──
+    if t.strip():
+        st.markdown('<div class="slabel">Document Audit</div>', unsafe_allow_html=True)
+        for lvl, msg in audit(t):
+            st.markdown(f'<div class="issue-row {lvl}">{msg}</div>', unsafe_allow_html=True)
+
+        # TOC
+        h = headings(t)
+        if h:
+            st.markdown('<div class="slabel">Structure</div>', unsafe_allow_html=True)
+            for entry in h:
+                indent = "&nbsp;&nbsp;&nbsp;" * (entry["level"] - 1)
                 st.markdown(f"""
-                <div class="toc-entry">
-                  <span class="toc-title">{e['title']}</span>
-                  <span class="toc-page">p. {e['page']}</span>
+                <div class="toc-row">
+                  <span>{indent}{entry['title']}</span>
+                  <span class="toc-pg">p.{entry['page']}</span>
                 </div>""", unsafe_allow_html=True)
-        else:
-            st.markdown('<div class="issue-row info">ℹ No headings found — add <code>## Chapter 1: Title</code> to build a TOC.</div>', unsafe_allow_html=True)
 
-        st.markdown("---")
-        st.markdown('<div class="slabel">Word Frequency (top 15, excluding common words)</div>', unsafe_allow_html=True)
+        # Word freq
+        st.markdown('<div class="slabel">Top Words</div>', unsafe_allow_html=True)
         stopwords = {"the","and","a","to","of","in","is","it","that","was","he","she","his","her",
                      "i","you","we","they","with","for","on","at","be","as","had","have","this",
                      "but","from","or","an","by","are","said","not","so","what","all","were","when",
                      "there","been","one","do","their","my","me","no","if","can","up","its","out",
                      "into","about","more","how","your","our","them","will","has","would","could",
-                     "than","then","just","like","some","these","those","which","who","him","us"}
+                     "than","then","just","like","some","these","those","which","who","him","us",
+                     "did","she","her","him","its","been","were","they","have","this","with","that"}
         freq = {}
-        for w in re.findall(r'\b\w+\b', ms.lower()):
+        for w in re.findall(r'\b[a-z]+\b', t.lower()):
             if len(w) > 3 and w not in stopwords:
                 freq[w] = freq.get(w, 0) + 1
-        top = sorted(freq.items(), key=lambda x: x[1], reverse=True)[:15]
+        top = sorted(freq.items(), key=lambda x: x[1], reverse=True)[:12]
         if top:
             mx = top[0][1]
             for word, count in top:
                 bar = int((count / mx) * 100)
                 st.markdown(f"""
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
-                  <span style="min-width:90px;font-size:0.8rem;color:#ccc">{word}</span>
-                  <div style="flex:1;background:#1e1e20;border-radius:3px;height:7px">
-                    <div style="width:{bar}%;background:#c9a84c;border-radius:3px;height:7px"></div>
-                  </div>
-                  <span style="font-size:0.74rem;color:#666;min-width:26px;text-align:right">{count}</span>
+                <div class="freq-row">
+                  <span class="freq-word">{word}</span>
+                  <div class="freq-bar-bg"><div class="freq-bar" style="width:{bar}%"></div></div>
+                  <span class="freq-n">{count}</span>
                 </div>""", unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# TAB 3 — FIND & REPLACE
-# ═══════════════════════════════════════════════════════════════════════════════
-with tab_find:
-    ms = st.session_state.manuscript
-    st.markdown('<div class="slabel">Find & Replace</div>', unsafe_allow_html=True)
-
-    if not ms.strip():
-        st.markdown('<div class="issue-row info">ℹ Paste your manuscript in the Write tab first.</div>', unsafe_allow_html=True)
-    else:
-        find_str    = st.text_input("Find",    placeholder='e.g. "said" or "John"',       key="find_in")
-        replace_str = st.text_input("Replace with", placeholder='e.g. "whispered" or "James"', key="repl_in")
-
-        col1, col2 = st.columns(2)
-        with col1:
-            case_sensitive = st.checkbox("Case sensitive", value=False, key="case_cb")
-        with col2:
-            whole_word = st.checkbox("Whole word only", value=False, key="whole_cb")
-
-        if find_str:
-            flags = 0 if case_sensitive else re.IGNORECASE
-            pattern = (r'\b' + re.escape(find_str) + r'\b') if whole_word else re.escape(find_str)
-            try:
-                n = len(re.findall(pattern, ms, flags=flags))
-                st.markdown(f'<div class="match-count">🔍 {n} match(es) found</div>', unsafe_allow_html=True)
-            except re.error:
-                pass
-
-        col_a, col_b = st.columns(2)
-        with col_a:
-            if st.button("Replace All", use_container_width=True, key="rep_btn"):
-                if find_str:
-                    push_history(ms)
-                    new_ms, n = find_replace(ms, find_str, replace_str, case_sensitive, whole_word)
-                    st.session_state.manuscript = new_ms
-                    st.success(f"Replaced {n} occurrence(s).")
-                    st.rerun()
-        with col_b:
-            if st.button("↩️ Undo", use_container_width=True, key="fr_undo"):
-                if st.session_state.history:
-                    st.session_state.manuscript = st.session_state.history.pop()
-                    st.success("Undone.")
-                    st.rerun()
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# TAB 4 — FORMAT
-# ═══════════════════════════════════════════════════════════════════════════════
-with tab_format:
-    ms = st.session_state.manuscript
-    st.markdown('<div class="slabel">Auto-Format Options</div>', unsafe_allow_html=True)
-
-    if not ms.strip():
-        st.markdown('<div class="issue-row info">ℹ Paste your manuscript in the Write tab first.</div>', unsafe_allow_html=True)
-    else:
-        st.markdown('<div class="card"><div class="card-body">Select fixes to apply, then tap <b>Apply Formatting</b>. All changes are undoable.</div></div>', unsafe_allow_html=True)
-
-        opts = {}
-        opts["double_space"]     = st.checkbox("Remove double spaces",                             value=True)
-        opts["blank_lines"]      = st.checkbox("Collapse 3+ blank lines → single blank line",      value=True)
-        opts["strip_trailing"]   = st.checkbox("Strip trailing whitespace from lines",              value=True)
-        opts["smart_quotes"]     = st.checkbox('Convert straight "quotes" → "smart quotes"',       value=False)
-        opts["ellipsis"]         = st.checkbox("Convert ... → … (ellipsis character)",             value=False)
-        opts["em_dash"]          = st.checkbox("Convert -- or --- → — (em dash)",                  value=False)
-        opts["scene_break"]      = st.checkbox("Normalize * * * / --- scene breaks → ***",         value=False)
-        opts["chapter_headings"] = st.checkbox("Normalize bare 'Chapter N' lines → ## Chapter N", value=False)
-
-        st.markdown("---")
-        col_a, col_b = st.columns(2)
-        with col_a:
-            if st.button("✅ Apply Formatting", use_container_width=True):
-                push_history(ms)
-                st.session_state.manuscript = auto_format(ms, opts)
-                st.success("Formatting applied!")
-                st.rerun()
-        with col_b:
-            if st.button("↩️ Undo", use_container_width=True, key="fmt_undo"):
-                if st.session_state.history:
-                    st.session_state.manuscript = st.session_state.history.pop()
-                    st.success("Undone.")
-                    st.rerun()
-                else:
-                    st.info("Nothing to undo.")
-
-        st.markdown("---")
-        st.markdown('<div class="slabel">Print / KDP Reference Specs</div>', unsafe_allow_html=True)
-        st.markdown("""
-        <div class="card">
-          <div class="card-title">Standard KDP Print-on-Demand Specs</div>
-          <div class="card-body">
-            <b>Trim sizes:</b> 5×8″ (novels) · 6×9″ (nonfiction) · 5.5×8.5″ (general fiction)<br>
-            <b>Margins:</b> Inside 0.875″ · Outside 0.625″ · Top/Bottom 0.75″<br>
-            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(add 0.125″ inside for 250+ pages)<br>
-            <b>Body font:</b> Garamond 11–12pt · Times New Roman 11pt<br>
-            <b>Line spacing:</b> 1.2–1.4× for novels · 1.3–1.5× for nonfiction<br>
-            <b>Indent:</b> 0.25–0.3″ (no indent on first para after heading)<br>
-            <b>Scene breaks:</b> Centered *** · blank line above and below<br>
-            <b>Chapter open:</b> Start ~⅓ down page · drop cap or small caps on first word<br>
-            <b>Page numbers:</b> Footer · no number on chapter-opening pages<br>
-            <b>Widows/Orphans:</b> Minimum 2 lines at top/bottom of any page
-          </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# TAB 5 — PREVIEW
+# PREVIEW TAB
 # ═══════════════════════════════════════════════════════════════════════════════
 with tab_preview:
-    ms = st.session_state.manuscript
-    st.markdown('<div class="slabel">Book Page Preview</div>', unsafe_allow_html=True)
-
-    if not ms.strip():
-        st.markdown('<div class="issue-row info">ℹ Write something first to see the preview.</div>', unsafe_allow_html=True)
+    t = st.session_state.text
+    st.markdown('<div style="padding: 16px 16px 8px">', unsafe_allow_html=True)
+    if not t.strip():
+        st.markdown('<p style="color:#bbb;font-size:0.9rem;padding:20px 0">Nothing to preview yet.</p>', unsafe_allow_html=True)
     else:
         parts = []
-        for line in ms.split("\n"):
+        for line in t.split("\n"):
             s = line.strip()
             if not s:
-                parts.append('<div style="height:0.85rem"></div>')
-            elif re.match(r'^#\s+', s):
-                t = re.sub(r'^#\s+', '', s)
-                parts.append(f'<h1 style="font-size:1.5rem;text-align:center;margin:1.5rem 0 1rem;font-family:Playfair Display,serif;color:#111">{t}</h1>')
+                parts.append('<div style="height:0.7rem"></div>')
+            elif re.match(r'^###\s+', s):
+                h = re.sub(r'^###\s+', '', s)
+                parts.append(f'<h3 style="font-size:1rem;margin:1.5rem 0 0.3rem;font-weight:600">{h}</h3>')
             elif re.match(r'^##\s+', s):
-                t = re.sub(r'^##\s+', '', s)
-                parts.append(f'<h2 style="font-size:1.05rem;margin:2rem 0 0.3rem;font-family:Playfair Display,serif;color:#222;border-bottom:1px solid #ccc;padding-bottom:4px">{t}</h2>')
+                h = re.sub(r'^##\s+', '', s)
+                parts.append(f'<h2 style="font-size:1.15rem;margin:2rem 0 0.4rem;font-weight:600;border-bottom:1px solid #eee;padding-bottom:6px">{h}</h2>')
+            elif re.match(r'^#\s+', s):
+                h = re.sub(r'^#\s+', '', s)
+                parts.append(f'<h1 style="font-size:1.5rem;text-align:center;margin:1.5rem 0 1rem;font-weight:600">{h}</h1>')
             elif s == "***":
-                parts.append('<div style="text-align:center;margin:1.2rem 0;color:#999;letter-spacing:0.35em">* * *</div>')
+                parts.append('<div style="text-align:center;color:#ccc;letter-spacing:0.4em;margin:1.5rem 0;font-size:0.85rem">* * *</div>')
             else:
-                parts.append(f'<p style="margin:0 0 0 1.3em;text-indent:0;color:#1a1a1a">{s}</p>')
-
-        st.markdown(f'<div class="page-preview">{"".join(parts)}</div>', unsafe_allow_html=True)
+                parts.append(f'<p style="margin:0 0 0.1rem 1.3em;text-indent:0">{s}</p>')
+        st.markdown(f'<div class="preview-page">{"".join(parts)}</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# TAB 6 — EXPORT
+# EXPORT TAB
 # ═══════════════════════════════════════════════════════════════════════════════
 with tab_export:
-    ms = st.session_state.manuscript
-    st.markdown('<div class="slabel">Export</div>', unsafe_allow_html=True)
+    t = st.session_state.text
+    st.markdown('<div style="padding:16px">', unsafe_allow_html=True)
+    st.markdown('<div class="slabel">Download</div>', unsafe_allow_html=True)
 
-    if not ms.strip():
-        st.markdown('<div class="issue-row info">ℹ Nothing to export yet.</div>', unsafe_allow_html=True)
-    else:
-        ts = datetime.now().strftime("%Y%m%d_%H%M")
-        wc = word_count(ms)
-        st.markdown(f'<div class="card"><div class="card-title">Ready to Export</div><div class="card-body">{wc:,} words · ~{max(1,round(wc/250))} pages</div></div>', unsafe_allow_html=True)
-
+    ts = datetime.now().strftime("%Y%m%d_%H%M")
+    if t.strip():
         c1, c2, c3 = st.columns(3)
         with c1:
-            st.download_button("⬇️ .txt", data=ms,
-                               file_name=f"manuscript_{ts}.txt", mime="text/plain", use_container_width=True)
+            st.download_button("⬇ .txt", data=t,
+                file_name=f"document_{ts}.txt", mime="text/plain", use_container_width=True)
         with c2:
-            st.download_button("⬇️ .md", data=ms,
-                               file_name=f"manuscript_{ts}.md", mime="text/markdown", use_container_width=True)
+            st.download_button("⬇ .md", data=t,
+                file_name=f"document_{ts}.md", mime="text/markdown", use_container_width=True)
         with c3:
-            st.download_button("⬇️ .html", data=export_html(ms),
-                               file_name=f"manuscript_{ts}.html", mime="text/html", use_container_width=True)
+            st.download_button("⬇ .html", data=to_html(t),
+                file_name=f"document_{ts}.html", mime="text/html", use_container_width=True)
+    else:
+        st.markdown('<p style="color:#bbb;font-size:0.85rem">Nothing written yet.</p>', unsafe_allow_html=True)
 
-        st.markdown("---")
-        st.markdown('<div class="slabel">Publishing Checklist</div>', unsafe_allow_html=True)
+    st.markdown('<div class="slabel" style="margin-top:24px">Publishing Checklist</div>', unsafe_allow_html=True)
+    checklist = [
+        ("Ebook prep", [
+            "Headings use # / ## / ### format for TOC generation",
+            "Scene breaks are *** on their own line",
+            "Smart quotes used throughout (not straight quotes)",
+            "No double spaces or tab indents",
+            "Front matter: title page, copyright, dedication",
+            "Back matter: About the Author, newsletter link",
+            "Paste .md into Atticus, Reedsy, or Kindle Create",
+        ]),
+        ("Print / KDP", [
+            "Trim size: 5x8\" novels · 6x9\" nonfiction · 5.5x8.5\" general",
+            "Margins: inside 0.875\" · outside 0.625\" · top/bottom 0.75\"",
+            "Body font: Garamond or Times 11-12pt · 1.2-1.4x line spacing",
+            "Chapter pages start ~1/3 down · no page number on those pages",
+            "Fonts embedded before PDF export · export as PDF/X-1a",
+            "Check for widows and orphans before final export",
+        ]),
+        ("Uploading", [
+            "Cover: 2560x1600px minimum, JPG or TIFF",
+            "Separate ISBNs for ebook and print",
+            "2-3 BISAC categories selected",
+            "7 keyword phrases (not single words)",
+            "Description previewed in KDP before publishing",
+        ]),
+    ]
+    for section, items in checklist:
+        st.markdown(f'<div class="slabel" style="margin-top:18px">{section}</div>', unsafe_allow_html=True)
+        for item in items:
+            st.markdown(f'<div class="check-row"><span class="check-icon">☐</span><span>{item}</span></div>', unsafe_allow_html=True)
 
-        checklist = [
-            ("Ebook", [
-                "Chapter headings use ## format (needed for NCX/TOC in ebook readers)",
-                "No manual page breaks — ebook formatters handle reflow",
-                "Scene breaks use *** (not ---)",
-                "Smart quotes used throughout",
-                "No double spaces or tab-based paragraph indents",
-                "Front matter present: title page, copyright page, dedication",
-                "Back matter present: About the Author, newsletter / CTA page",
-                "Paste .txt or .md into Atticus, Reedsy, or Kindle Create",
-            ]),
-            ("Print PDF", [
-                "Correct trim size set before flowing text",
-                "Inside margin ≥ 0.875″ (add 0.125″ for books over 150 pages)",
-                "All fonts embedded before PDF export",
-                "Chapter-opening pages start approximately ⅓ down the page",
-                "No page number on chapter-opening pages",
-                "Widows and orphans fixed manually before final export",
-                "Image resolution ≥ 300 DPI if images are present",
-                "Export as PDF/X-1a for KDP compatibility",
-            ]),
-            ("Retailer Upload", [
-                "Cover: 2,560 × 1,600 px minimum (JPG/TIFF, separate from manuscript)",
-                "Separate ISBNs for ebook and print editions",
-                "BISAC category selected (2–3 maximum)",
-                "7 keywords entered — use phrases, not single words",
-                "Book description previewed in KDP (HTML tags supported)",
-                "Author Central page claimed and linked to book",
-            ]),
-        ]
-
-        for section, items in checklist:
-            st.markdown(f"<div class='slabel' style='margin-top:16px'>{section}</div>", unsafe_allow_html=True)
-            for item in items:
-                st.markdown(f"""
-                <div style="display:flex;gap:10px;align-items:flex-start;padding:6px 0;
-                     border-bottom:1px solid #1a1a1c;font-size:0.8rem;color:#bbb">
-                  <span style="color:#c9a84c;flex-shrink:0;margin-top:1px">◇</span>
-                  <span>{item}</span>
-                </div>""", unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
