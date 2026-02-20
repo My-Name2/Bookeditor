@@ -283,11 +283,62 @@ div[data-testid="stMetricValue"] {
   .preview-page { padding: 24px 18px; font-size: 0.95rem; }
   .stTabs [data-baseweb="tab"] { font-size: 0.68rem; padding: 9px 10px !important; }
 }
+
+/* ── Page view ── */
+.page-canvas {
+  background: #e8e8e8;
+  padding: 24px 16px 40px;
+  min-height: 90vh;
+}
+.page-sheet {
+  background: #fff;
+  width: 100%;
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 52px 48px;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.13), 0 1px 4px rgba(0,0,0,0.08);
+  border-radius: 1px;
+  font-family: 'Lora', serif;
+  font-size: 1.05rem;
+  line-height: 1.95;
+  color: #1a1a1a;
+  min-height: 90vh;
+  white-space: pre-wrap;
+  word-break: break-word;
+  cursor: text;
+}
+.page-sheet h1 { font-size: 1.5rem; text-align: center; margin: 1.5rem 0 2rem; font-weight: 600; }
+.page-sheet h2 { font-size: 1.1rem; margin: 2.2rem 0 0.5rem; font-weight: 600; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+.page-sheet h3 { font-size: 0.95rem; margin: 1.5rem 0 0.3rem; font-weight: 600; }
+.page-sheet p  { margin: 0 0 0.1rem 1.4em; }
+.page-sheet .scene { text-align: center; color: #aaa; letter-spacing: 0.4em; margin: 1.5rem 0; font-size: 0.85rem; }
+.view-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  font-size: 0.75rem;
+  color: #555;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.view-toggle.active {
+  background: #1a1a1a;
+  color: #fff;
+  border-color: #1a1a1a;
+}
+@media (max-width: 640px) {
+  .page-sheet { padding: 36px 24px; font-size: 1rem; }
+  .page-canvas { padding: 16px 10px 32px; }
+}
 </style>
 """, unsafe_allow_html=True)
 
 # ── Session state ─────────────────────────────────────────────────────────────
-for k, v in [("text", ""), ("history", []), ("doc_title", "Untitled Document")]:
+for k, v in [("text", ""), ("history", []), ("doc_title", "Untitled Document"), ("page_view", False)]:
     if k not in st.session_state:
         st.session_state[k] = v
 
@@ -413,17 +464,52 @@ tab_write, tab_tools, tab_preview, tab_export = st.tabs([
 # WRITE TAB — just the document, nothing else
 # ═══════════════════════════════════════════════════════════════════════════════
 with tab_write:
-    new_text = st.text_area(
-        "editor",
-        value=st.session_state.text,
-        placeholder="Start writing...",
-        height=700,
-        label_visibility="collapsed",
-        key="main_editor",
-    )
-    if new_text != st.session_state.text:
-        push_history(st.session_state.text)
-        st.session_state.text = new_text
+    # ── View toggle ──
+    tcol1, tcol2 = st.columns([3, 1])
+    with tcol2:
+        pv_label = "📄 Page view" if not st.session_state.page_view else "✏️ Edit mode"
+        if st.button(pv_label, use_container_width=True, key="pv_toggle"):
+            st.session_state.page_view = not st.session_state.page_view
+            st.rerun()
+
+    if not st.session_state.page_view:
+        # ── Raw editor ──
+        new_text = st.text_area(
+            "editor",
+            value=st.session_state.text,
+            placeholder="Start writing...",
+            height=700,
+            label_visibility="collapsed",
+            key="main_editor",
+        )
+        if new_text != st.session_state.text:
+            push_history(st.session_state.text)
+            st.session_state.text = new_text
+    else:
+        # ── Page view (read/review mode) ──
+        parts = []
+        for line in st.session_state.text.split("\n"):
+            s = line.strip()
+            if not s:
+                parts.append('<div style="height:0.65rem"></div>')
+            elif re.match(r'^###\s+', s):
+                h = re.sub(r'^###\s+', '', s)
+                parts.append(f'<h3>{h}</h3>')
+            elif re.match(r'^##\s+', s):
+                h = re.sub(r'^##\s+', '', s)
+                parts.append(f'<h2>{h}</h2>')
+            elif re.match(r'^#\s+', s):
+                h = re.sub(r'^#\s+', '', s)
+                parts.append(f'<h1>{h}</h1>')
+            elif s == "***":
+                parts.append('<div class="scene">* * *</div>')
+            else:
+                parts.append(f'<p>{s}</p>')
+        page_html = "".join(parts) if parts else '<span style="color:#ccc;font-style:italic">Start writing to see the page view...</span>'
+        st.markdown(f'''
+        <div class="page-canvas">
+          <div class="page-sheet">{page_html}</div>
+        </div>''', unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TOOLS TAB — stats, find/replace, format, audit
