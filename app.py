@@ -1,6 +1,7 @@
 import streamlit as st
 import re
 from datetime import datetime
+from pathlib import Path
 
 st.set_page_config(
     page_title="Folio",
@@ -337,8 +338,19 @@ div[data-testid="stMetricValue"] {
 </style>
 """, unsafe_allow_html=True)
 
+# ── Load default text from file (editable in GitHub repo) ─────────────────────
+def load_default_text() -> str:
+    """Read default_text.txt from the same directory as this script."""
+    default_file = Path(__file__).parent / "default_text.txt"
+    if default_file.exists():
+        return default_file.read_text(encoding="utf-8")
+    return ""
+
 # ── Session state ─────────────────────────────────────────────────────────────
-for k, v in [("text", ""), ("history", []), ("doc_title", "Untitled Document"), ("page_view", False)]:
+if "text" not in st.session_state:
+    st.session_state["text"] = load_default_text()
+
+for k, v in [("history", []), ("doc_title", "Untitled Document"), ("page_view", False)]:
     if k not in st.session_state:
         st.session_state[k] = v
 
